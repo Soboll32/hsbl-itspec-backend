@@ -1,0 +1,486 @@
+import React from "react";
+
+// StronaFirmowa (React) — wersja z opcjami integracji formularza (Formspree / Netlify) oraz
+// przyciskiem do wygenerowania jednoplilkowego `index.html` (pobranie).
+
+// Ustawienia: wybierz provider formularza lub 'demo' dla lokalnego alertu.
+const FORM_CONFIG = {
+  provider: "demo", // "formspree" | "netlify" | "demo"
+  // Jeśli używasz Formspree, wpisz swój endpoint (np. "https://formspree.io/f/XXXXX").
+  formspreeEndpoint: "https://formspree.io/f/your-id-goes-here",
+  // Dla Netlify nic nie trzeba zmieniać - formularz będzie zawierał data-netlify="true".
+};
+
+const COMPANY = {
+  name: "HSBL-ITSpec",
+  tagline: "Profesjonalne usługi IT",
+  phone: "+48 600 000 000",
+  email: "kontakt@hsbl-itspec.pl",
+  address: "ul. Przykładowa 12, 00-001 Warszawa",
+};
+
+const styles = `
+:root{--accent:#f59e0b;--bg:#f7fafc;--muted:#6b7280;--card:#ffffff}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;line-height:1.45;background:var(--bg);color:#111827}
+a{color:var(--accent);text-decoration:none}
+.container{max-width:1100px;margin:0 auto;padding:28px}
+header{background:#fff;box-shadow:0 1px 4px rgba(2,6,23,0.06);position:sticky;top:0;z-index:50}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:700}
+nav a{margin-left:16px;font-size:15px;color:#374151}
+.cta{padding:8px 14px;border-radius:8px;border:1px solid var(--accent);color:var(--accent);font-weight:600}
+.hero{display:grid;grid-template-columns:1fr;gap:28px;padding:48px 0;align-items:center}
+.hero h1{font-size:36px;margin:0 0 14px}
+.hero p{color:var(--muted);margin:0 0 18px}
+.btn{display:inline-block;padding:12px 18px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600}
+.card-form{background:var(--card);padding:18px;border-radius:14px;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+section{padding:34px 0}
+.grid-2{display:grid;grid-template-columns:1fr;gap:22px}
+.grid-3{display:grid;grid-template-columns:1fr;gap:18px}
+.card{background:var(--card);padding:18px;border-radius:12px;box-shadow:0 6px 16px rgba(2,6,23,0.04)}
+.portfolio{display:grid;grid-template-columns:repeat(1,1fr);gap:12px}
+.contact-grid{display:grid;grid-template-columns:1fr;gap:18px}
+iframe{width:100%;border:0;height:220px;border-radius:10px}
+footer{padding:20px 0;background:#fff;border-top:1px solid #eef2f7;margin-top:16px}
+@media(min-width:768px){.hero{grid-template-columns:1fr 420px}.grid-2{grid-template-columns:1fr 1fr}.portfolio{grid-template-columns:repeat(3,1fr)}.contact-grid{grid-template-columns:1fr 1fr}nav{display:block}}
+@media(min-width:992px){.hero h1{font-size:44px}}
+.muted{color:var(--muted)}
+.pill{display:inline-block;padding:8px 12px;border-radius:999px;background:#fff;border:1px solid #eee}
+input,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ee;font-size:14px}
+button[type=submit]{padding:10px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-weight:600}
+`;
+
+export default function StronaFirmowa() {
+  const phoneCompact = COMPANY.phone.split(" ").join("");
+
+  // Local state not required; simple form handling demonstrates different providers
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+
+    if (FORM_CONFIG.provider === "demo") {
+      alert("Dziękujemy! Formularz wysłany (demo). Treść formularza:
+" +
+        Array.from(formData.entries()).map(([k, v]) => `${k}: ${v}`).join("
+"));
+      form.reset();
+      return;
+    }
+
+    if (FORM_CONFIG.provider === "formspree") {
+      // POST to Formspree endpoint
+      try {
+        const res = await fetch(FORM_CONFIG.formspreeEndpoint, {
+          method: "POST",
+          headers: { 'Accept': 'application/json' },
+          body: formData,
+        });
+        if (res.ok) {
+          alert("Dziękujemy! Formularz wysłany.");
+          form.reset();
+        } else {
+          const data = await res.json();
+          alert("Błąd wysyłki: " + (data.error || res.statusText));
+        }
+      } catch (err) {
+        alert("Błąd sieci: " + err.message);
+      }
+      return;
+    }
+
+    if (FORM_CONFIG.provider === "netlify") {
+      // For Netlify we can submit the form normally (Netlify processes HTML forms).
+      // To work reliably from React, we create a plain form POST by using fetch to
+      // send urlencoded payload to the current path. Netlify expects form name.
+      try {
+        const payload = new URLSearchParams();
+        for (const [k, v] of formData.entries()) payload.append(k, v);
+        payload.append('form-name', form.getAttribute('name') || 'contact');
+        const res = await fetch('/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: payload.toString(),
+        });
+        if (res.ok) {
+          alert('Dziękujemy! Formularz wysłany (Netlify).');
+          form.reset();
+        } else {
+          alert('Błąd wysyłki (Netlify): ' + res.statusText);
+        }
+      } catch (err) {
+        alert('Błąd sieci: ' + err.message);
+      }
+      return;
+    }
+
+    alert('Nieznany provider formularza. Sprawdź ustawienia.');
+  };
+
+  // Generuj prosty plik index.html (statyczny) i wymuś pobranie
+  const downloadStaticSite = () => {
+    const html = `<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${COMPANY.name} — Strona firmowa</title>
+<style>${styles}</style>
+</head>
+<body>
+<main class="container">
+<section class="hero">
+<h1>${COMPANY.name} — ${COMPANY.tagline}</h1>
+<p>Skontaktuj się: ${COMPANY.phone} • ${COMPANY.email}</p>
+</section>
+<section id="contact">
+<form method="POST" action="${FORM_CONFIG.provider === 'formspree' ? FORM_CONFIG.formspreeEndpoint : (FORM_CONFIG.provider === 'netlify' ? '/' : '#') }" ${FORM_CONFIG.provider === 'netlify' ? 'data-netlify="true" name="contact"' : ''}>
+<input name="name" placeholder="Imię i nazwisko" required/>
+<input name="email" placeholder="Email" required/>
+<input name="phone" placeholder="Telefon"/>
+<textarea name="message" placeholder="Wiadomość"></textarea>
+<button type="submit">Wyślij</button>
+</form>
+</section>
+</main>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'index.html';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // Przygotuj atrybuty formularza — dla Netlify potrzebne data-netlify (jeśli provider netlify)
+  const formAttributes = {};
+  if (FORM_CONFIG.provider === 'netlify') {
+    formAttributes['data-netlify'] = 'true';
+    formAttributes['name'] = 'contact';
+  }
+
+  return (
+    <div>
+      <style>{styles}</style>
+
+      <header>
+        <div className="container nav-inner">
+          <div className="brand">
+            <div className="logo">TF</div>
+            <div>
+              <div style={{ fontWeight: 700 }}>{COMPANY.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>{COMPANY.tagline}</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <nav className="hidden-sm" aria-label="Główne menu">
+              <a href="#about">O nas</a>
+              <a href="#services">Usługi</a>
+              <a href="#portfolio">Portfolio</a>
+              <a href="#contact">Kontakt</a>
+            </nav>
+            <a className="cta" href={`tel:${phoneCompact}`}>{COMPANY.phone}</a>
+          </div>
+        </div>
+      </header>
+
+      <main className="container">
+        <section className="hero">
+          <div>
+            <h1>
+              {COMPANY.name} — <span style={{ color: 'var(--accent)' }}>{COMPANY.tagline}</span>
+            </h1>
+            <p className="muted">Dostarczamy rzetelne i trwałe rozwiązania dla firm i klientów indywidualnych.</p>
+            <div style={{ marginTop: 16 }}>
+              <button className="btn" onClick={() => document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })}>Skontaktuj się</button>
+              <button style={{ marginLeft: 12 }} onClick={downloadStaticSite}>Pobierz statyczny index.html</button>
+            </div>
+          </div>
+
+          <aside>
+            <div className="card card-form">
+              <h3 style={{ margin: 0, marginBottom: 8 }}>Bezpłatna konsultacja</h3>
+              <p style={{ margin: 0, marginBottom: 12, color: 'var(--muted)' }}>Wypełnij formularz — oddzwonimy w ciągu 24 godzin.</p>
+
+              {/* Formularz: w React obsługujemy submit programowo, atrybuty pomagają Netlify */}
+              <form id="contact-form" onSubmit={handleSubmit} {...formAttributes}>
+                <input name="name" required placeholder="Imię i nazwisko" />
+                <div style={{ height: 10 }} />
+                <input name="phone" required placeholder="Telefon" />
+                <div style={{ height: 10 }} />
+                <input name="company" placeholder="Firma (opcjonalnie)" />
+                <div style={{ height: 12 }} />
+                <button type="submit">Poproś o kontakt</button>
+              </form>
+
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--muted)' }}>
+                Provider formularza: <strong>{FORM_CONFIG.provider}</strong>
+                {FORM_CONFIG.provider === 'formspree' && <div>Endpoint: <code>{FORM_CONFIG.formspreeEndpoint}</code></div>}
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        {/* reszta strony pozostaje taka sama — skrócona wersja dla czytelności */}
+        <section id="contact" style={{ marginTop: 18 }}>
+          <div className="contact-grid">
+            <div>
+              <h3>Skontaktuj się z nami</h3>
+              <p className="muted">Masz pytania? Chcesz wycenę? Napisz lub zadzwoń.</p>
+              <div style={{ marginTop: 12 }}>
+                <p><strong>Telefon:</strong> <a href={`tel:${phoneCompact}`}>{COMPANY.phone}</a></p>
+                <p><strong>Email:</strong> <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></p>
+                <p><strong>Adres:</strong> {COMPANY.address}</p>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <iframe title="mapa" src={`https://www.google.com/maps?q=${encodeURIComponent(COMPANY.address)}&output=embed`} />
+              </div>
+            </div>
+
+            <div>
+              <div className="card">
+                <h4>Formularz kontaktowy</h4>
+                <form onSubmit={handleSubmit} style={{ marginTop: 10 }} {...formAttributes}>
+                  <input name="name" required placeholder="Imię i nazwisko" />
+                  <div style={{ height: 8 }} />
+                  <input name="email" required placeholder="Email" />
+                  <div style={{ height: 8 }} />
+                  <input name="phone" placeholder="Telefon" />
+                  <div style={{ height: 8 }} />
+                  <textarea name="message" placeholder="Wiadomość" style={{ minHeight: 120 }} />
+                  <div style={{ height: 12 }} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <button type="submit">Wyślij wiadomość</button>
+                    <div style={{ color: 'var(--muted)', fontSize: 13 }}>Odpowiemy w ciągu 24 godzin</div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div>© {new Date().getFullYear()} {COMPANY.name}. Wszelkie prawa zastrzeżone.</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <a href="#privacy">Polityka prywatności</a>
+              <a href="#terms">Regulamin</a>
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
+  );
+}
+
+
+/* --------------------------------------------------------------------------
+   DODATKOWE PLIKI I INSTRUKCJE (AKTUALIZACJA – KOMPLETNY BACKEND)
+   -------------------------------------------------------------------------- */
+
+// === server.js ===
+// Kompletny plik backendu Node.js + Express przyjmujący formularze i wysyłający
+// wiadomości przez Resend API.
+
+// server.js
+import express from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import multer from "multer";
+import fetch from "node-fetch"; // używane do wysyłki maili przez Resend
+
+const app = express();
+app.use(helmet());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+const upload = multer();
+const limiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
+app.use("/api/contact", limiter);
+
+// ENV
+const {
+  PORT = 3000,
+  RESEND_API_KEY,
+  FROM_EMAIL = "kontakt@hsbl-itspec.pl",
+  TO_EMAIL = "kontakt@hsbl-itspec.pl"
+} = process.env;
+
+async function sendEmailResend({ name, email, phone, message }) {
+  const text = `Nowa wiadomość z formularza:
+Imię: ${name}
+Email: ${email}
+Telefon: ${phone || "-"}
+Wiadomość:
+${message}`;
+
+  const body = {
+    from: FROM_EMAIL,
+    to: TO_EMAIL,
+    subject: `Formularz kontaktowy — ${name}`,
+    text
+  };
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Resend error ${res.status}: ${t}`);
+  }
+  return res.json();
+}
+
+app.post("/api/contact", upload.none(), async (req, res) => {
+  try {
+    const { name, email, phone, message } = req.body;
+    if (!name || !email) return res.status(400).json({ ok: false, error: "Brakuje pola name/email" });
+
+    await sendEmailResend({ name, email, phone, message });
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/", (req, res) => res.send("API HSBL-ITSpec działa"));
+app.listen(PORT, () => console.log(`Backend działa na porcie ${PORT}`));
+
+
+// === package.json ===
+// Plik konfiguracyjny Node.js
+{
+  "name": "hsbl-itspec-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "start-dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "helmet": "^6.0.1",
+    "express-rate-limit": "^6.7.0",
+    "multer": "^1.4.5",
+    "node-fetch": "^3.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
+
+
+// === .env.example ===
+PORT=3000
+RESEND_API_KEY=re_XXXXXXXXXXXXXXXXXXXXXXX
+FROM_EMAIL=kontakt@hsbl-itspec.pl
+TO_EMAIL=kontakt@hsbl-itspec.pl
+
+
+// === DEPLOY_RENDER.md ===
+# Wdrożenie backendu na Render (krok po kroku)
+
+1. Utwórz repo z plikami: server.js, package.json, .env.example.
+2. Wejdź na https://render.com → New → Web Service.
+3. Połącz repozytorium GitHub.
+4. Build Command: *(puste)*.
+5. Start Command: `node server.js`.
+6. Environment → dodaj zmienne:
+   - RESEND_API_KEY
+   - FROM_EMAIL
+   - TO_EMAIL
+7. Deploy — otrzymasz URL typu: https://twoj-backend.onrender.com
+8. W Render → Settings → Custom Domain → dodaj: **api.hsbl-itspec.pl**.
+9. Render pokaże rekord CNAME — dodaj go w Hostido.
+10. Po weryfikacji Render automatycznie wystawi SSL.
+
+
+// === DNS_HOSTIDO.md ===
+# Dodanie rekordu DNS dla api.hsbl-itspec.pl (Hostido)
+
+1. Wejdź do panel.hostido.com.
+2. Domeny → hsbl-itspec.pl → Zarządzanie DNS.
+3. Dodaj rekord:
+
+Typ: CNAME
+Host: api
+Wartość: twoj-backend.onrender.com
+TTL: 3600
+
+4. Poczekaj propagację (5–30 minut).
+5. Wróć do Render → kliknij "Verify".
+
+
+// === FRONTEND_INTEGRATION.md ===
+# Podłączenie formularza w front-endzie
+
+W pliku React ustaw:
+
+```
+const FORM_CONFIG = {
+  provider: "formspree",  // używamy trybu POST
+  formspreeEndpoint: "https://api.hsbl-itspec.pl/api/contact",
+};
+```
+
+Formularz będzie wysyłał dane do backendu i backend wyśle email.
+
+// === TESTY ===
+# Test API przez curl
+
+## JSON
+```
+curl -X POST https://api.hsbl-itspec.pl/api/contact \
+ -H "Content-Type: application/json" \
+ -d '{"name":"Jan","email":"jan@wp.pl","phone":"600","message":"Test"}'
+```
+
+## form-data (jak HTML)
+```
+curl -X POST https://api.hsbl-itspec.pl/api/contact \
+ -F name="Jan" -F email="jan@wp.pl" -F phone="600" -F message="Test"
+```
+
+Odpowiedź powinna być: `{ "ok": true }`
+
+
+// Plik: server.js
+// (Zawartość: Express API obsługujące POST /api/contact, walidacja, wysyłka maili przez SMTP/Resend/SendGrid)
+// Został dodany jako nowy blok w tym dokumentie - otwórz canvas, żeby zobaczyć i skopiować pełny kod.
+
+// Plik: DEPLOY_RENDER.md
+// Instrukcja wdrożenia backendu na Render.com / Railway.app (krok po kroku):
+// 1) Zainicjuj repo git z server.js, package.json
+// 2) Zarejestruj konto na Render
+// 3) Create -> Web Service -> wybierz repo i branch
+// 4) Ustaw environment variables: FROM_EMAIL, TO_EMAIL, SMTP_HOST, SMTP_USER, SMTP_PASS (lub RESEND_API_KEY)
+// 5) Deploy -> otrzymasz URL dla API (np. https://your-api.onrender.com)
+// 6) W panelu Hostido dodaj rekord CNAME/A dla api.hsbl-itspec.pl wskazujący na Render (instrukcja dokładna w pliku DEPLOY_RENDER.md)
+
+// Plik: SSL_HOSTIDO.md
+// Instrukcja aktywacji SSL na Hostido (Let's Encrypt):
+// 1) Panel Hostido -> Hosting -> hsbl-itspec.pl -> Bezpieczeństwo / SSL
+// 2) Wybierz "Włącz Let's Encrypt" -> potwierdź
+// 3) Hostido automatycznie wygeneruje certyfikat (może potrwać do 30 min)
+// 4) Jeżeli certyfikat nie aktywuje się, sprawdź czy DNS wskazuje na 185.110.51.238
+
+// Plik: DNS_CHECK.md
+// Jak sprawdzić propagację DNS:
+// - https://dnschecker.org -> wpisz hsbl-itspec.pl, wybierz rekord A -> sprawdź czy widoczny jest 185.110.51.238
+// - curl -I http://hsbl-itspec.pl  (z lokalnego terminala)
+// - nslookup hsbl-itspec.pl
+
+// Uwaga: Wszystkie powyższe pliki ze szczegółową zawartością zostały dodane do canvasu.
